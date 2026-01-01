@@ -1,9 +1,9 @@
 """
 Temperature monitoring thread for CPU Temperature Widget.
 Uses multiple methods to read CPU temperature:
-1. OpenHardwareMonitor WMI (if OHM/LHM is running)
-2. LibreHardwareMonitor DLL (requires admin + pythonnet)
-3. WMI Thermal Zone (built-in Windows, limited support)
+1. LibreHardwareMonitor WMI (if LHM is running)
+2. OpenHardwareMonitor WMI (if OHM is running)
+3. WMI Thermal Zone (built-in Windows, requires admin)
 4. Simulation (fallback for demo/testing)
 """
 
@@ -13,7 +13,7 @@ import sys
 import random
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from PyQt6.QtCore import QThread, pyqtSignal, QMutex
 
@@ -43,14 +43,12 @@ class TemperatureMonitor(QThread):
         self._interval = update_interval
         self._running = False
         self._mutex = QMutex()
-        self._computer = None
-        self._lhm_initialized = False
-        self._wmi_initialized = False
-        self._wmi_ohm_initialized = False
-        self._wmi = None
+        self._wmi_lhm = None
         self._wmi_ohm = None
+        self._wmi_thermal = None
         self._method = "none"
         self._error_shown = False
+        self._last_real_temp = None
     
     def set_interval(self, interval: float):
         """Set the update interval in seconds."""
@@ -58,188 +56,169 @@ class TemperatureMonitor(QThread):
         self._interval = interval
         self._mutex.unlock()
     
-    def _init_wmi_ohm(self) -> bool:
+    def _init_libre_hardware_monitor_wmi(self) -> bool:
         """
-        Initialize WMI connection to OpenHardwareMonitor/LibreHardwareMonitor.
-        This works if OHM or LHM is running in the background (no admin needed for our app).
+        Initialize WMI connection to LibreHardwareMonitor.
+        LHM must be running for this to work.
         """
         try:
             import wmi
-            # Try OpenHardwareMonitor WMI namespace
-            self._wmi_ohm = wmi.WMI(namespace="root\\OpenHardwareMonitor")
-            sensors = self._wmi_ohm.Sensor()
+            self._wmi_lhm = wmi.WMI(namespace="root/LibreHardwareMonitor")
             
-            # Check if we can find CPU temperature sensors
+            # Test if we can read sensors
+            sensors = self._wmi_lhm.Sensor()
             for sensor in sensors:
-                if sensor.SensorType == "Temperature" and "CPU" in sensor.Name:
-                    self._wmi_ohm_initialized = True
-                    self._method = "OpenHardwareMonitor"
+                if sensor.SensorType == "Temperature":
+                    self._method = "LibreHardwareMonitor"
                     return True
             
-            # Even if no CPU sensor yet, the namespace exists
+            # Namespace exists but no temperature sensors yet
             if sensors:
-                self._wmi_ohm_initialized = True
-                self._method = "OpenHardwareMonitor"
-                return True
-                
-        except Exception:
-            pass
-        
-        try:
-            import wmi
-            # Try LibreHardwareMonitor WMI namespace
-            self._wmi_ohm = wmi.WMI(namespace="root\\LibreHardwareMonitor")
-            sensors = self._wmi_ohm.Sensor()
-            
-            if sensors:
-                self._wmi_ohm_initialized = True
                 self._method = "LibreHardwareMonitor"
                 return True
                 
-        except Exception:
-            pass
+        except Exception as e:
+            self._wmi_lhm = None
         
         return False
     
-    def _init_libre_hardware_monitor(self) -> bool:
-        """Initialize LibreHardwareMonitor via pythonnet (requires admin)."""
-        try:
-            import clr
-            
-            dll_paths = [
-                Path(sys.executable).parent / 'LibreHardwareMonitorLib.dll',
-                Path(__file__).parent / 'LibreHardwareMonitorLib.dll',
-                Path(__file__).parent / 'resources' / 'LibreHardwareMonitorLib.dll',
-                Path.cwd() / 'LibreHardwareMonitorLib.dll',
-            ]
-            
-            dll_found = None
-            for dll_path in dll_paths:
-                if dll_path.exists():
-                    dll_found = str(dll_path)
-                    break
-            
-            if dll_found:
-                clr.AddReference(dll_found)
-            else:
-                clr.AddReference('LibreHardwareMonitorLib')
-            
-            from LibreHardwareMonitor.Hardware import Computer, HardwareType, SensorType
-            
-            self._computer = Computer()
-            self._computer.IsCpuEnabled = True
-            self._computer.Open()
-            
-            self._HardwareType = HardwareType
-            self._SensorType = SensorType
-            self._lhm_initialized = True
-            self._method = "LibreHardwareMonitor-DLL"
-            return True
-            
-        except ImportError:
-            return False
-        except Exception:
-            return False
-    
-    def _init_wmi_thermal(self) -> bool:
-        """Initialize WMI thermal zone temperature (built-in Windows)."""
+    def _init_open_hardware_monitor_wmi(self) -> bool:
+        """
+        Initialize WMI connection to OpenHardwareMonitor.
+        OHM must be running for this to work.
+        """
         try:
             import wmi
-            self._wmi = wmi.WMI(namespace="root\\wmi")
+            self._wmi_ohm = wmi.WMI(namespace="root/OpenHardwareMonitor")
             
-            # Test if we can read temperature
-            temps = self._wmi.MSAcpi_ThermalZoneTemperature()
+            sensors = self._wmi_ohm.Sensor()
+            for sensor in sensors:
+                if sensor.SensorType == "Temperature":
+                    self._method = "OpenHardwareMonitor"
+                    return True
+            
+            if sensors:
+                self._method = "OpenHardwareMonitor"
+                return True
+                
+        except Exception as e:
+            self._wmi_ohm = None
+        
+        return False
+    
+    def _init_wmi_thermal(self) -> bool:
+        """Initialize WMI thermal zone (requires admin on most systems)."""
+        try:
+            import wmi
+            self._wmi_thermal = wmi.WMI(namespace="root/wmi")
+            
+            temps = self._wmi_thermal.MSAcpi_ThermalZoneTemperature()
             if temps and temps[0].CurrentTemperature > 0:
                 temp_kelvin = temps[0].CurrentTemperature / 10.0
                 temp_celsius = temp_kelvin - 273.15
                 if 0 < temp_celsius < 150:
-                    self._wmi_initialized = True
                     self._method = "WMI-ThermalZone"
                     return True
                     
         except Exception:
-            pass
+            self._wmi_thermal = None
         
         return False
     
-    def _get_cpu_temp_ohm(self) -> Optional[float]:
-        """Get CPU temperature from OpenHardwareMonitor/LibreHardwareMonitor WMI."""
-        if not self._wmi_ohm_initialized or not self._wmi_ohm:
+    def _get_temp_from_lhm(self) -> Optional[float]:
+        """Get CPU temperature from LibreHardwareMonitor WMI."""
+        if not self._wmi_lhm:
+            return None
+        
+        try:
+            sensors = self._wmi_lhm.Sensor()
+            
+            cpu_package_temp = None
+            cpu_core_temps = []
+            cpu_max_temp = None
+            cpu_avg_temp = None
+            
+            for sensor in sensors:
+                if sensor.SensorType == "Temperature" and sensor.Value is not None:
+                    name = sensor.Name.lower() if sensor.Name else ""
+                    parent = sensor.Parent.lower() if sensor.Parent else ""
+                    
+                    # Check if it's a CPU sensor
+                    is_cpu = "cpu" in parent or "intel" in parent or "amd" in parent or "processor" in parent
+                    
+                    if is_cpu or "cpu" in name or "core" in name:
+                        value = float(sensor.Value)
+                        
+                        if value <= 0 or value > 150:
+                            continue
+                        
+                        # Prioritize different sensor types
+                        if "package" in name:
+                            cpu_package_temp = value
+                        elif "max" in name:
+                            cpu_max_temp = value
+                        elif "average" in name:
+                            cpu_avg_temp = value
+                        elif "core" in name:
+                            cpu_core_temps.append(value)
+            
+            # Return in order of preference
+            if cpu_package_temp is not None:
+                return cpu_package_temp
+            if cpu_avg_temp is not None:
+                return cpu_avg_temp
+            if cpu_max_temp is not None:
+                return cpu_max_temp
+            if cpu_core_temps:
+                return sum(cpu_core_temps) / len(cpu_core_temps)
+            
+        except Exception:
+            pass
+        
+        return None
+    
+    def _get_temp_from_ohm(self) -> Optional[float]:
+        """Get CPU temperature from OpenHardwareMonitor WMI."""
+        if not self._wmi_ohm:
             return None
         
         try:
             sensors = self._wmi_ohm.Sensor()
             
-            # Look for CPU Package temperature first (most accurate)
-            for sensor in sensors:
-                if sensor.SensorType == "Temperature":
-                    name = sensor.Name.lower()
-                    if "cpu package" in name or "cpu" in name and "package" in name:
-                        if sensor.Value is not None and sensor.Value > 0:
-                            return float(sensor.Value)
+            cpu_package_temp = None
+            cpu_core_temps = []
             
-            # Fallback to any CPU temperature
             for sensor in sensors:
-                if sensor.SensorType == "Temperature" and "CPU" in sensor.Name:
-                    if sensor.Value is not None and sensor.Value > 0:
-                        return float(sensor.Value)
-            
-            # Fallback to any temperature sensor
-            for sensor in sensors:
-                if sensor.SensorType == "Temperature":
-                    if sensor.Value is not None and sensor.Value > 0:
-                        return float(sensor.Value)
-                        
-        except Exception:
-            pass
-        
-        return None
-    
-    def _get_cpu_temp_lhm(self) -> Optional[float]:
-        """Get CPU temperature using LibreHardwareMonitor DLL."""
-        if not self._lhm_initialized or not self._computer:
-            return None
-        
-        try:
-            temps = []
-            package_temp = None
-            
-            for hardware in self._computer.Hardware:
-                hardware.Update()
-                
-                if hardware.HardwareType == self._HardwareType.Cpu:
-                    for sensor in hardware.Sensors:
-                        if sensor.SensorType == self._SensorType.Temperature:
-                            if sensor.Value is not None:
-                                name = sensor.Name.lower()
-                                if 'package' in name:
-                                    package_temp = float(sensor.Value)
-                                temps.append(float(sensor.Value))
+                if sensor.SensorType == "Temperature" and sensor.Value is not None:
+                    name = sensor.Name.lower() if sensor.Name else ""
+                    value = float(sensor.Value)
                     
-                    for sub in hardware.SubHardware:
-                        sub.Update()
-                        for sensor in sub.Sensors:
-                            if sensor.SensorType == self._SensorType.Temperature:
-                                if sensor.Value is not None:
-                                    temps.append(float(sensor.Value))
+                    if value <= 0 or value > 150:
+                        continue
+                    
+                    if "cpu" in name or "core" in name:
+                        if "package" in name:
+                            cpu_package_temp = value
+                        else:
+                            cpu_core_temps.append(value)
             
-            if package_temp is not None:
-                return package_temp
-            elif temps:
-                return sum(temps) / len(temps)
+            if cpu_package_temp is not None:
+                return cpu_package_temp
+            if cpu_core_temps:
+                return sum(cpu_core_temps) / len(cpu_core_temps)
             
         except Exception:
             pass
         
         return None
     
-    def _get_cpu_temp_wmi(self) -> Optional[float]:
-        """Get CPU temperature using WMI thermal zone."""
-        if not self._wmi_initialized or not self._wmi:
+    def _get_temp_from_thermal(self) -> Optional[float]:
+        """Get temperature from WMI thermal zone."""
+        if not self._wmi_thermal:
             return None
         
         try:
-            temps = self._wmi.MSAcpi_ThermalZoneTemperature()
+            temps = self._wmi_thermal.MSAcpi_ThermalZoneTemperature()
             if temps and temps[0].CurrentTemperature > 0:
                 temp_kelvin = temps[0].CurrentTemperature / 10.0
                 temp_celsius = temp_kelvin - 273.15
@@ -250,33 +229,39 @@ class TemperatureMonitor(QThread):
         
         return None
     
-    def _get_cpu_temp_simulation(self) -> float:
-        """Simulated temperature for demo purposes."""
+    def _get_simulated_temp(self) -> float:
+        """Generate simulated temperature for demo."""
         base = 48.0
         slow_wave = 8.0 * (0.5 + 0.5 * (time.time() % 60) / 60)
         noise = random.uniform(-1.5, 1.5)
         spike = random.uniform(5, 10) if random.random() < 0.05 else 0
         return round(base + slow_wave + noise + spike, 1)
     
-    def get_temperature(self) -> Optional[float]:
-        """Get the current CPU temperature using the best available method."""
-        # Try OHM/LHM WMI first (works without admin if OHM is running)
-        temp = self._get_cpu_temp_ohm()
+    def get_temperature(self) -> Tuple[Optional[float], str]:
+        """
+        Get the current CPU temperature.
+        Returns: (temperature, source) where source indicates where the reading came from.
+        """
+        # Try LibreHardwareMonitor first
+        temp = self._get_temp_from_lhm()
         if temp is not None:
-            return temp
+            self._last_real_temp = temp
+            return temp, "LHM"
         
-        # Try LibreHardwareMonitor DLL
-        temp = self._get_cpu_temp_lhm()
+        # Try OpenHardwareMonitor
+        temp = self._get_temp_from_ohm()
         if temp is not None:
-            return temp
+            self._last_real_temp = temp
+            return temp, "OHM"
         
-        # Try WMI thermal zone
-        temp = self._get_cpu_temp_wmi()
+        # Try WMI Thermal Zone
+        temp = self._get_temp_from_thermal()
         if temp is not None:
-            return temp
+            self._last_real_temp = temp
+            return temp, "WMI"
         
-        # Use simulation as last resort
-        return self._get_cpu_temp_simulation()
+        # Fall back to simulation
+        return self._get_simulated_temp(), "SIM"
     
     def get_method(self) -> str:
         """Get the current temperature reading method."""
@@ -286,31 +271,35 @@ class TemperatureMonitor(QThread):
         """Main monitoring loop."""
         self._running = True
         
-        # Try initialization methods in order of preference
-        # 1. OHM/LHM WMI (no admin needed if OHM is running)
-        if not self._init_wmi_ohm():
-            # 2. LibreHardwareMonitor DLL (needs admin)
-            if not self._init_libre_hardware_monitor():
-                # 3. WMI Thermal Zone (needs admin on most systems)
-                if not self._init_wmi_thermal():
-                    # 4. Fall back to simulation
-                    self._method = "Simulation"
-                    
-                    # Only show error once
-                    if not self._error_shown:
-                        self._error_shown = True
-                        self.error_occurred.emit(
-                            "Using simulated temperature. For real readings:\n"
-                            "• Run OpenHardwareMonitor or HWiNFO in background, OR\n"
-                            "• Run this app as Administrator"
-                        )
+        # Try to initialize temperature sources
+        lhm_ok = self._init_libre_hardware_monitor_wmi()
+        ohm_ok = self._init_open_hardware_monitor_wmi() if not lhm_ok else False
+        thermal_ok = self._init_wmi_thermal() if not (lhm_ok or ohm_ok) else False
+        
+        if not (lhm_ok or ohm_ok or thermal_ok):
+            self._method = "Simulation"
+            if not self._error_shown:
+                self._error_shown = True
+                self.error_occurred.emit(
+                    "Using simulated temperature.\n"
+                    "For real readings, run LibreHardwareMonitor."
+                )
         
         while self._running:
             self._mutex.lock()
             interval = self._interval
             self._mutex.unlock()
             
-            temp = self.get_temperature()
+            temp, source = self.get_temperature()
+            
+            # Re-check for LHM/OHM if we're using simulation (they might have started)
+            if source == "SIM" and not self._error_shown:
+                if self._init_libre_hardware_monitor_wmi():
+                    source = "LHM"
+                    temp, _ = self.get_temperature()
+                elif self._init_open_hardware_monitor_wmi():
+                    source = "OHM"
+                    temp, _ = self.get_temperature()
             
             if temp is not None:
                 self.temperature_updated.emit(temp)
@@ -322,13 +311,6 @@ class TemperatureMonitor(QThread):
     def stop(self):
         """Stop the monitoring thread."""
         self._running = False
-        
-        if self._computer is not None:
-            try:
-                self._computer.Close()
-            except Exception:
-                pass
-        
         self.wait(2000)
 
 
@@ -348,7 +330,7 @@ class WarningStateTracker:
         self._threshold = threshold
         self._above_threshold_since = None
     
-    def update(self, temperature: float) -> tuple[bool, bool]:
+    def update(self, temperature: float) -> Tuple[bool, bool]:
         """
         Update the warning state with a new temperature reading.
         

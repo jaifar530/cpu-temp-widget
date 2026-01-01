@@ -2,7 +2,7 @@
 ; Download Inno Setup from: https://jrsoftware.org/isinfo.php
 
 #define MyAppName "CPU Temperature Widget"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Virtual Platforms LLC"
 #define MyAppURL "https://github.com/jaifar530/cpu-temp-widget"
 #define MyAppExeName "CPUTempWidget.exe"
@@ -28,9 +28,8 @@ WizardStyle=modern
 ; Compression
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Privileges (don't require admin for per-user install)
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+; Privileges - require admin for better hardware access
+PrivilegesRequired=admin
 ; Uninstaller
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
