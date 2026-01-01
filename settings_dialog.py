@@ -5,9 +5,9 @@ Settings dialog for CPU Temperature Widget.
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QSpinBox, QComboBox, QSlider, QCheckBox,
-    QPushButton, QGroupBox, QFrame, QSpacerItem, QSizePolicy
+    QPushButton, QGroupBox, QWidget, QSpacerItem, QSizePolicy
 )
 
 from config import get_config
@@ -43,45 +43,72 @@ class SettingsDialog(QDialog):
     def _setup_window(self):
         """Configure window properties."""
         self.setWindowTitle("CPU Temperature Widget - Settings")
-        self.setFixedSize(400, 480)
+        self.setMinimumSize(380, 520)
         self.setWindowFlags(
             Qt.WindowType.Dialog |
             Qt.WindowType.WindowCloseButtonHint
         )
+    
+    def _create_group(self, title: str) -> tuple[QGroupBox, QVBoxLayout]:
+        """Create a styled group box with layout."""
+        group = QGroupBox(title)
+        group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 1px solid #45475a;
+                border-radius: 8px;
+                margin-top: 14px;
+                padding: 8px;
+                color: #cdd6f4;
+                background-color: #252535;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                top: 2px;
+                padding: 0 6px;
+                background-color: #1e1e2e;
+            }
+        """)
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(12, 20, 12, 12)
+        layout.setSpacing(10)
+        return group, layout
+    
+    def _create_row(self, label_text: str, widget: QWidget) -> QWidget:
+        """Create a labeled row widget."""
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(12)
         
-        # Apply dark theme
+        label = QLabel(label_text)
+        label.setMinimumWidth(120)
+        label.setStyleSheet("color: #bac2de; font-size: 12px; background: transparent;")
+        
+        row_layout.addWidget(label)
+        row_layout.addWidget(widget, 1)
+        
+        return row
+    
+    def _setup_ui(self):
+        """Set up the user interface."""
+        # Main window styling
         self.setStyleSheet("""
             QDialog {
                 background-color: #1e1e2e;
                 color: #cdd6f4;
-            }
-            QLabel {
-                color: #cdd6f4;
-                font-size: 12px;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #45475a;
-                border-radius: 8px;
-                margin-top: 16px;
-                padding: 16px;
-                padding-top: 24px;
-                color: #cdd6f4;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                top: 4px;
-                padding: 0 6px;
-                background-color: #1e1e2e;
             }
             QSpinBox, QComboBox {
                 background-color: #313244;
                 color: #cdd6f4;
                 border: 1px solid #45475a;
                 border-radius: 6px;
-                padding: 8px 12px;
-                min-width: 120px;
+                padding: 6px 10px;
+                min-width: 140px;
+                min-height: 20px;
                 font-size: 12px;
             }
             QSpinBox:focus, QComboBox:focus {
@@ -100,7 +127,8 @@ class SettingsDialog(QDialog):
                 width: 24px;
             }
             QComboBox::down-arrow {
-                image: none;
+                width: 10px;
+                height: 10px;
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
                 border-top: 6px solid #cdd6f4;
@@ -110,8 +138,9 @@ class SettingsDialog(QDialog):
                 color: #cdd6f4;
                 selection-background-color: #45475a;
                 border: 1px solid #45475a;
-                border-radius: 6px;
-                padding: 4px;
+            }
+            QSlider {
+                min-height: 24px;
             }
             QSlider::groove:horizontal {
                 height: 6px;
@@ -120,10 +149,10 @@ class SettingsDialog(QDialog):
             }
             QSlider::handle:horizontal {
                 background-color: #89b4fa;
-                width: 18px;
-                height: 18px;
-                margin: -6px 0;
-                border-radius: 9px;
+                width: 16px;
+                height: 16px;
+                margin: -5px 0;
+                border-radius: 8px;
             }
             QSlider::handle:horizontal:hover {
                 background-color: #b4befe;
@@ -136,10 +165,11 @@ class SettingsDialog(QDialog):
                 color: #cdd6f4;
                 spacing: 10px;
                 font-size: 12px;
+                min-height: 24px;
             }
             QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
+                width: 18px;
+                height: 18px;
                 border-radius: 4px;
                 border: 2px solid #45475a;
                 background-color: #313244;
@@ -159,6 +189,7 @@ class SettingsDialog(QDialog):
                 padding: 10px 20px;
                 font-size: 12px;
                 font-weight: bold;
+                min-height: 20px;
             }
             QPushButton:hover {
                 background-color: #585b70;
@@ -166,87 +197,67 @@ class SettingsDialog(QDialog):
             QPushButton:pressed {
                 background-color: #313244;
             }
-            QPushButton#primaryButton {
-                background-color: #89b4fa;
-                color: #1e1e2e;
-            }
-            QPushButton#primaryButton:hover {
-                background-color: #b4befe;
-            }
-            QPushButton#dangerButton {
-                background-color: #f38ba8;
-                color: #1e1e2e;
-            }
-            QPushButton#dangerButton:hover {
-                background-color: #f5c2e7;
-            }
         """)
-    
-    def _setup_ui(self):
-        """Set up the user interface."""
+        
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
         title = QLabel("Settings")
         title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        title.setStyleSheet("color: #cdd6f4; margin-bottom: 8px;")
+        title.setStyleSheet("color: #cdd6f4; margin-bottom: 4px; background: transparent;")
         layout.addWidget(title)
         
-        # Temperature group
-        temp_group = QGroupBox("Temperature")
-        temp_layout = QGridLayout(temp_group)
-        temp_layout.setSpacing(12)
+        # ===== Temperature Group =====
+        temp_group, temp_layout = self._create_group("Temperature")
         
         # Warning threshold
-        temp_layout.addWidget(QLabel("Warning Threshold:"), 0, 0)
         self._threshold_spin = QSpinBox()
         self._threshold_spin.setRange(40, 100)
         self._threshold_spin.setSuffix(" °C")
-        temp_layout.addWidget(self._threshold_spin, 0, 1)
+        temp_layout.addWidget(self._create_row("Warning Threshold:", self._threshold_spin))
         
         # Update interval
-        temp_layout.addWidget(QLabel("Update Interval:"), 1, 0)
         self._interval_combo = QComboBox()
         self._interval_combo.addItems(["0.5 seconds", "1 second", "2 seconds"])
-        temp_layout.addWidget(self._interval_combo, 1, 1)
+        temp_layout.addWidget(self._create_row("Update Interval:", self._interval_combo))
         
         layout.addWidget(temp_group)
         
-        # Appearance group
-        appearance_group = QGroupBox("Appearance")
-        appearance_layout = QGridLayout(appearance_group)
-        appearance_layout.setSpacing(12)
+        # ===== Appearance Group =====
+        appearance_group, appearance_layout = self._create_group("Appearance")
         
         # Text size
-        appearance_layout.addWidget(QLabel("Text Size:"), 0, 0)
         self._size_combo = QComboBox()
         self._size_combo.addItems(["Small", "Medium", "Large"])
-        appearance_layout.addWidget(self._size_combo, 0, 1)
+        appearance_layout.addWidget(self._create_row("Text Size:", self._size_combo))
         
         # Transparency
-        appearance_layout.addWidget(QLabel("Transparency:"), 1, 0)
+        transparency_widget = QWidget()
+        transparency_inner = QHBoxLayout(transparency_widget)
+        transparency_inner.setContentsMargins(0, 0, 0, 0)
+        transparency_inner.setSpacing(8)
         
-        transparency_layout = QHBoxLayout()
         self._transparency_slider = QSlider(Qt.Orientation.Horizontal)
         self._transparency_slider.setRange(30, 90)
         self._transparency_slider.setTickInterval(10)
+        self._transparency_slider.setMinimumWidth(120)
         
         self._transparency_label = QLabel("60%")
         self._transparency_label.setMinimumWidth(40)
-        self._transparency_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._transparency_label.setStyleSheet("color: #89b4fa; font-weight: bold; background: transparent;")
+        self._transparency_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         
-        transparency_layout.addWidget(self._transparency_slider)
-        transparency_layout.addWidget(self._transparency_label)
-        appearance_layout.addLayout(transparency_layout, 1, 1)
+        transparency_inner.addWidget(self._transparency_slider, 1)
+        transparency_inner.addWidget(self._transparency_label)
+        
+        appearance_layout.addWidget(self._create_row("Transparency:", transparency_widget))
         
         layout.addWidget(appearance_group)
         
-        # Behavior group
-        behavior_group = QGroupBox("Behavior")
-        behavior_layout = QVBoxLayout(behavior_group)
-        behavior_layout.setSpacing(12)
+        # ===== Behavior Group =====
+        behavior_group, behavior_layout = self._create_group("Behavior")
         
         self._always_on_top_check = QCheckBox("Always on top")
         behavior_layout.addWidget(self._always_on_top_check)
@@ -258,15 +269,24 @@ class SettingsDialog(QDialog):
         
         # Reset position button
         self._reset_btn = QPushButton("Reset Widget Position")
-        self._reset_btn.setObjectName("dangerButton")
+        self._reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f38ba8;
+                color: #1e1e2e;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #f5c2e7;
+            }
+        """)
         layout.addWidget(self._reset_btn)
         
         # Spacer
         layout.addSpacerItem(QSpacerItem(
-            20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
+            20, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
         ))
         
-        # Buttons
+        # Bottom buttons
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
         
@@ -274,7 +294,16 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(self._cancel_btn)
         
         self._apply_btn = QPushButton("Apply")
-        self._apply_btn.setObjectName("primaryButton")
+        self._apply_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #89b4fa;
+                color: #1e1e2e;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #b4befe;
+            }
+        """)
         button_layout.addWidget(self._apply_btn)
         
         layout.addLayout(button_layout)
