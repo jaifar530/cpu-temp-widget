@@ -3,11 +3,11 @@
 # Core UI framework
 PyQt6>=6.6.0
 
-# Optional: For hardware monitoring (requires admin privileges)
-# pythonnet>=3.0.3  # Uncomment if using LibreHardwareMonitor
+# Windows temperature reading via WMI
+WMI>=1.5.1
 
-# Optional: For WMI temperature reading fallback
-# WMI>=1.5.1  # Uncomment for WMI support (Windows only)
+# Optional: For direct hardware monitoring (requires admin privileges)
+# pythonnet>=3.0.3  # Uncomment if using LibreHardwareMonitor DLL
 
 # Build tools
 pyinstaller>=6.3.0

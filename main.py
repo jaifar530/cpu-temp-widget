@@ -88,7 +88,12 @@ class CPUTempWidgetApp:
     
     def _on_monitor_error(self, error: str):
         """Handle error from temperature monitor."""
-        print(f"Monitor error: {error}")
+        # Show as tray notification instead of console
+        self._tray.show_notification(
+            "CPU Temperature Widget",
+            error,
+            self._tray.MessageIcon.Warning
+        )
     
     def _toggle_widget_visibility(self, visible: bool):
         """Toggle widget visibility."""
