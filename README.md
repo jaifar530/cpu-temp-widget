@@ -4,6 +4,12 @@ A polished, lightweight Windows desktop widget that displays your CPU temperatur
 
 ![Widget Preview](https://via.placeholder.com/200x80/1e1e2e/cdd6f4?text=CPU:+52°C)
 
+## Download
+
+**[Download Latest Installer (Windows)](https://github.com/jaifar530/cpu-temp-widget/releases/latest)**
+
+Just download and run `CPUTempWidget_Setup_1.0.0.exe` - no Python or command line needed!
+
 ## Features
 
 - **Floating Widget**: Translucent, frameless overlay that stays on top of other windows

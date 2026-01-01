@@ -116,3 +116,10 @@ resources/icon.ico
 
 # Config files (user-specific)
 config.json
+
+# Build outputs
+build/
+dist/
+installer_output/
+*.spec
+!build.spec
