@@ -219,15 +219,26 @@ class Config:
             )
             
             if enable:
-                # Get the executable path
                 import sys
-                exe_path = sys.executable
                 if hasattr(sys, 'frozen'):
-                    # Running as compiled exe
-                    exe_path = sys.executable
+                    # Running as compiled exe - no console window
+                    exe_path = f'"{sys.executable}"'
                 else:
-                    # Running from Python script
-                    exe_path = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
+                    # Running from Python script - use VBS launcher (no console)
+                    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                    vbs_launcher = os.path.join(script_dir, 'launch.vbs')
+                    
+                    if os.path.exists(vbs_launcher):
+                        # Use VBS launcher for silent startup
+                        exe_path = f'wscript.exe "{vbs_launcher}"'
+                    else:
+                        # Fallback to pythonw.exe
+                        python_dir = os.path.dirname(sys.executable)
+                        pythonw = os.path.join(python_dir, 'pythonw.exe')
+                        if not os.path.exists(pythonw):
+                            pythonw = sys.executable
+                        script_path = os.path.abspath(sys.argv[0])
+                        exe_path = f'"{pythonw}" "{script_path}"'
                 
                 winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, exe_path)
             else:
@@ -237,8 +248,8 @@ class Config:
                     pass  # Already removed
             
             winreg.CloseKey(key)
-        except WindowsError as e:
-            print(f"Warning: Could not update startup registry: {e}")
+        except WindowsError:
+            pass  # Silently fail if registry access denied
     
     def check_startup_registry(self) -> bool:
         """Check if the app is set to start with Windows."""
