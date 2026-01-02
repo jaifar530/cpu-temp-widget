@@ -21,7 +21,7 @@ sys.path.insert(0, APP_DIR)
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
 
 from config import get_config
 from widget import TemperatureWidget
@@ -181,8 +181,17 @@ def main():
     
     # Set application info
     app.setApplicationName("CPU Temperature Widget")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.1.0")
     app.setOrganizationName("Virtual Platforms LLC")
+    
+    # Set application icon globally
+    icon_path = os.path.join(APP_DIR, 'resources', 'icon.ico')
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable - check MEIPASS
+        icon_path = os.path.join(sys._MEIPASS, 'resources', 'icon.ico')
+    
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
     
     # Set default font
     font = QFont("Segoe UI", 10)

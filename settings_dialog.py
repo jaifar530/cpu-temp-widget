@@ -2,8 +2,10 @@
 Settings dialog for CPU Temperature Widget.
 """
 
+import os
+import sys
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QSpinBox, QComboBox, QSlider, QCheckBox,
@@ -48,6 +50,23 @@ class SettingsDialog(QDialog):
             Qt.WindowType.Dialog |
             Qt.WindowType.WindowCloseButtonHint
         )
+        
+        # Set window icon
+        self._set_window_icon()
+    
+    def _set_window_icon(self):
+        """Set the window icon from resources."""
+        # Try to find the icon file
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        icon_path = os.path.join(base_path, 'resources', 'icon.ico')
+        
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
     
     def _create_group(self, title: str) -> tuple[QGroupBox, QVBoxLayout]:
         """Create a styled group box with layout."""
