@@ -24,6 +24,7 @@ AllowNoIcons=yes
 OutputDir=..\installer_output
 OutputBaseFilename=CPUTempWidget_Setup_{#MyAppVersion}
 ; Visual settings
+SetupIconFile=..\resources\icon.ico
 WizardStyle=modern
 ; Compression
 Compression=lzma2/ultra64
