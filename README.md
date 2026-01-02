@@ -8,7 +8,7 @@ A polished, lightweight Windows desktop widget that displays your CPU temperatur
 
 **[Download Latest Installer (Windows)](https://github.com/jaifar530/cpu-temp-widget/releases/latest)**
 
-Just download and run `CPUTempWidget_Setup_1.0.0.exe` - no Python or command line needed!
+Just download and run `CPUTempWidget_Setup_1.1.0.exe` - no Python or command line needed!
 
 ## Features
 
@@ -21,6 +21,15 @@ Just download and run `CPUTempWidget_Setup_1.0.0.exe` - no Python or command lin
 - **Position Memory**: Remembers its position between restarts
 - **Lock Mode**: Lock position with click-through for zero interference
 - **Multi-Monitor Support**: Works across multiple displays with DPI awareness
+
+## Technology Stack
+
+| Component | Technology | Rationale |
+|-----------|------------|-----------|
+| UI Framework | PyQt6 | Native look, excellent transparency/frameless support |
+| Hardware Monitor | LibreHardwareMonitor + WMI | Most reliable Windows CPU temp source |
+| Config Storage | JSON file in AppData | Simple, human-readable |
+| Packaging | PyInstaller + Inno Setup | Single portable .exe with Windows installer |
 
 ## Installation
 
