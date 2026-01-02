@@ -1,4 +1,5 @@
 # CPU Temperature Widget - Dependencies
+# NOTE: Requires Python 3.12 for stable pythonnet support
 
 # Core UI framework
 PyQt6>=6.6.0
@@ -6,8 +7,8 @@ PyQt6>=6.6.0
 # Windows temperature reading via WMI
 WMI>=1.5.1
 
-# Optional: For direct hardware monitoring (requires admin privileges)
-# pythonnet>=3.0.3  # Uncomment if using LibreHardwareMonitor DLL
+# .NET interop for LibreHardwareMonitorLib DLL
+pythonnet>=3.0.3
 
 # Build tools
 pyinstaller>=6.3.0

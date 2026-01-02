@@ -1,0 +1,85 @@
+================================================================================
+THIRD-PARTY SOFTWARE LICENSES
+================================================================================
+
+CPU Temperature Widget includes the following third-party software:
+
+--------------------------------------------------------------------------------
+LibreHardwareMonitor / LibreHardwareMonitorLib
+--------------------------------------------------------------------------------
+
+Copyright (c) LibreHardwareMonitor Contributors
+
+License: Mozilla Public License 2.0 (MPL-2.0)
+
+Source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+
+LibreHardwareMonitor is free software that can monitor the temperature sensors,
+fan speeds, voltages, load and clock speeds of your computer.
+
+This application uses LibreHardwareMonitorLib for direct CPU temperature monitoring.
+
+The full text of the MPL-2.0 license can be found at:
+https://www.mozilla.org/en-US/MPL/2.0/
+
+================================================================================
+Mozilla Public License Version 2.0 (Summary)
+================================================================================
+
+Permissions:
+- Commercial use
+- Distribution
+- Modification
+- Patent use
+- Private use
+
+Conditions:
+- Disclose source (for modified files only)
+- License and copyright notice
+- Same license (for modified files only)
+
+Limitations:
+- Liability
+- Trademark use
+- Warranty
+
+For the complete license text, please visit:
+https://www.mozilla.org/en-US/MPL/2.0/
+
+--------------------------------------------------------------------------------
+HidSharp
+--------------------------------------------------------------------------------
+
+Copyright (c) James F. Bellinger
+
+License: Apache License 2.0
+
+Source: https://www.nuget.org/packages/HidSharp/
+
+HidSharp is a multiplatform C# library for USB HID devices.
+
+--------------------------------------------------------------------------------
+PyQt6
+--------------------------------------------------------------------------------
+
+Copyright (c) Riverbank Computing Limited
+
+License: GPL v3
+
+Source: https://www.riverbankcomputing.com/software/pyqt/
+
+PyQt6 is a set of Python bindings for Qt6.
+
+--------------------------------------------------------------------------------
+pythonnet
+--------------------------------------------------------------------------------
+
+Copyright (c) .NET Foundation
+
+License: MIT License
+
+Source: https://github.com/pythonnet/pythonnet
+
+Python.NET allows Python to use .NET assemblies.
+
+================================================================================

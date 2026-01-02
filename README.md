@@ -8,10 +8,11 @@ A polished, lightweight Windows desktop widget that displays your CPU temperatur
 
 **[Download Latest Installer (Windows)](https://github.com/jaifar530/cpu-temp-widget/releases/latest)**
 
-Just download and run `CPUTempWidget_Setup_1.1.0.exe` - no Python or command line needed!
+Just download and run `CPUTempWidget_Setup_1.2.0.exe` - no Python or command line needed!
 
 ## Features
 
+- **Standalone**: No need to install LibreHardwareMonitor separately - it's bundled!
 - **Floating Widget**: Translucent, frameless overlay that stays on top of other windows
 - **Real-time Monitoring**: Live CPU temperature updates with configurable refresh rate
 - **Warning Alerts**: Text turns red when temperature exceeds threshold (default: 70°C)
@@ -27,7 +28,8 @@ Just download and run `CPUTempWidget_Setup_1.1.0.exe` - no Python or command lin
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
 | UI Framework | PyQt6 | Native look, excellent transparency/frameless support |
-| Hardware Monitor | LibreHardwareMonitor + WMI | Most reliable Windows CPU temp source |
+| Hardware Monitor | LibreHardwareMonitorLib (bundled) | Direct hardware access, most reliable CPU temp source |
+| .NET Interop | pythonnet | Bridge to use .NET libraries from Python |
 | Config Storage | JSON file in AppData | Simple, human-readable |
 | Packaging | PyInstaller + Inno Setup | Single portable .exe with Windows installer |
 
@@ -35,7 +37,8 @@ Just download and run `CPUTempWidget_Setup_1.1.0.exe` - no Python or command lin
 
 ### Option 1: Run from Source
 
-1. **Install Python 3.10+** from [python.org](https://www.python.org/downloads/)
+1. **Install Python 3.12** from [python.org](https://www.python.org/downloads/)
+   - Python 3.12 is recommended for stable pythonnet support
 
 2. **Clone or download** this repository
 
@@ -45,7 +48,7 @@ Just download and run `CPUTempWidget_Setup_1.1.0.exe` - no Python or command lin
    pip install -r requirements.txt
    ```
 
-4. **Run the application**:
+4. **Run the application** (as Administrator for accurate readings):
    ```bash
    python main.py
    ```
@@ -113,23 +116,16 @@ Access settings from the widget right-click menu or tray menu:
 
 **For accurate CPU temperature readings, run as Administrator.**
 
-The app uses LibreHardwareMonitor to read hardware sensors, which requires elevated privileges on Windows. Without administrator rights:
+The app uses the bundled LibreHardwareMonitorLib to read hardware sensors, which requires elevated privileges on Windows. The installer will prompt for admin rights automatically.
+
+Without administrator rights:
 - The app will still run
 - Temperature may show as `--°C` or use simulated values
 - A notification will appear on first run
 
-### Running as Administrator
+### Running as Administrator (from source)
 
-1. **From executable**: Right-click `CPUTempWidget.exe` → "Run as administrator"
-2. **From source**: Run your terminal as Administrator, then `python main.py`
-
-### Auto-start with Admin Rights
-
-To start with Windows as Administrator:
-1. Create a shortcut to the executable
-2. Right-click shortcut → Properties → Shortcut tab → Advanced
-3. Check "Run as administrator"
-4. Place shortcut in Startup folder (`Win+R` → `shell:startup`)
+Run your terminal as Administrator, then `python main.py`
 
 ## Temperature Color Guide
 
@@ -176,9 +172,9 @@ You can manually edit this file or delete it to reset all settings.
 
 ## Technical Details
 
-- **Language**: Python 3.10+
+- **Language**: Python 3.12
 - **UI Framework**: PyQt6
-- **Hardware Access**: LibreHardwareMonitor (via pythonnet)
+- **Hardware Access**: LibreHardwareMonitorLib (bundled DLL)
 - **Config Format**: JSON
 
 ## Files Structure
@@ -194,11 +190,27 @@ cpu_temp_widget/
 ├── build.py             # Build script
 ├── build.spec           # PyInstaller specification
 ├── requirements.txt     # Python dependencies
+├── THIRD-PARTY-LICENSES.txt  # Third-party license attributions
+├── libs/
+│   ├── LibreHardwareMonitorLib.dll  # Bundled hardware monitor
+│   └── HidSharp.dll                 # USB HID support library
 ├── resources/
 │   ├── styles.qss       # Qt stylesheet
+│   ├── icon.ico         # Application icon
 │   └── icon_data.py     # Embedded icon data
 └── README.md            # This file
 ```
+
+## Acknowledgments
+
+This application uses the following open-source software:
+
+- **[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)** - Hardware monitoring library (MPL-2.0 License)
+- **[PyQt6](https://www.riverbankcomputing.com/software/pyqt/)** - UI framework (GPL v3)
+- **[pythonnet](https://github.com/pythonnet/pythonnet)** - .NET/Python bridge (MIT License)
+- **[HidSharp](https://www.nuget.org/packages/HidSharp/)** - USB HID library (Apache 2.0)
+
+See `THIRD-PARTY-LICENSES.txt` for full license information.
 
 ## License
 

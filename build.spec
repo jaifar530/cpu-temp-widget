@@ -24,13 +24,21 @@ a = Analysis(
     datas=[
         ('resources/styles.qss', 'resources'),
         ('resources/icon_data.py', 'resources'),
+        ('resources/icon.ico', 'resources'),
+        ('libs/LibreHardwareMonitorLib.dll', 'libs'),
+        ('libs/HidSharp.dll', 'libs'),
+        ('THIRD-PARTY-LICENSES.txt', '.'),
     ],
     hiddenimports=[
         'PyQt6.QtCore',
         'PyQt6.QtGui',
         'PyQt6.QtWidgets',
         'clr',
+        'clr_loader',
         'pythonnet',
+        'wmi',
+        'win32com',
+        'win32com.client',
     ],
     hookspath=[],
     hooksconfig={},
@@ -72,5 +80,5 @@ exe = EXE(
     entitlements_file=None,
     icon='resources/icon.ico' if os.path.exists('resources/icon.ico') else None,
     version='version_info.txt' if os.path.exists('version_info.txt') else None,
-    uac_admin=False,  # Request admin privileges
+    uac_admin=True,  # Request admin privileges for hardware monitoring
 )

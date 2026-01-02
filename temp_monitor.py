@@ -1,10 +1,13 @@
 """
 Temperature monitoring thread for CPU Temperature Widget.
-Uses multiple methods to read CPU temperature:
-1. LibreHardwareMonitor WMI (if LHM is running)
-2. OpenHardwareMonitor WMI (if OHM is running)
-3. WMI Thermal Zone (built-in Windows, requires admin)
-4. Simulation (fallback for demo/testing)
+Uses LibreHardwareMonitorLib directly (bundled DLL) for reliable temperature reading.
+
+Methods in order of priority:
+1. LibreHardwareMonitorLib DLL (bundled, most reliable)
+2. LibreHardwareMonitor WMI (if LHM app is running separately)
+3. OpenHardwareMonitor WMI (if OHM app is running)
+4. WMI Thermal Zone (built-in Windows, requires admin)
+5. Simulation (fallback for demo/testing)
 """
 
 import ctypes
@@ -26,6 +29,202 @@ def is_admin() -> bool:
         return False
 
 
+def get_app_path() -> Path:
+    """Get the application path, handling both frozen exe and script mode."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled exe
+        return Path(sys.executable).parent
+    else:
+        # Running as script
+        return Path(__file__).parent
+
+
+class LibreHardwareMonitorDLL:
+    """
+    Wrapper for LibreHardwareMonitorLib.dll using pythonnet.
+    This provides direct hardware access without requiring LHM to be running.
+    """
+    
+    def __init__(self):
+        self._computer = None
+        self._initialized = False
+        self._error_msg = None
+    
+    def initialize(self) -> bool:
+        """Initialize the LibreHardwareMonitor library."""
+        if self._initialized:
+            return True
+        
+        try:
+            import clr
+            
+            # Add reference to the DLL
+            app_path = get_app_path()
+            libs_path = app_path / "libs"
+            
+            # Also check if DLLs are in the same directory (PyInstaller onefile)
+            dll_locations = [
+                libs_path / "LibreHardwareMonitorLib.dll",
+                app_path / "LibreHardwareMonitorLib.dll",
+            ]
+            
+            dll_path = None
+            for loc in dll_locations:
+                if loc.exists():
+                    dll_path = loc
+                    break
+            
+            if dll_path is None:
+                self._error_msg = "LibreHardwareMonitorLib.dll not found"
+                return False
+            
+            # Add the DLL directory to the search path
+            clr.AddReference(str(dll_path))
+            
+            # Also add HidSharp if available
+            hidsharp_path = dll_path.parent / "HidSharp.dll"
+            if hidsharp_path.exists():
+                clr.AddReference(str(hidsharp_path))
+            
+            # Import the library
+            from LibreHardwareMonitor.Hardware import Computer, IVisitor
+            
+            # Create and configure the computer instance
+            self._computer = Computer()
+            self._computer.IsCpuEnabled = True
+            self._computer.IsGpuEnabled = False
+            self._computer.IsMemoryEnabled = False
+            self._computer.IsMotherboardEnabled = False
+            self._computer.IsControllerEnabled = False
+            self._computer.IsNetworkEnabled = False
+            self._computer.IsStorageEnabled = False
+            
+            # Open the computer (starts hardware monitoring)
+            self._computer.Open()
+            
+            # Create an update visitor
+            self._update_visitor = _UpdateVisitor()
+            
+            self._initialized = True
+            return True
+            
+        except Exception as e:
+            self._error_msg = f"Failed to initialize LHM DLL: {str(e)}"
+            return False
+    
+    def get_cpu_temperature(self) -> Optional[float]:
+        """Get the CPU temperature from the DLL."""
+        if not self._initialized:
+            return None
+        
+        try:
+            # Update all hardware
+            self._computer.Accept(self._update_visitor)
+            
+            cpu_package_temp = None
+            cpu_core_temps = []
+            cpu_max_temp = None
+            cpu_avg_temp = None
+            
+            # Iterate through hardware
+            for hardware in self._computer.Hardware:
+                hardware.Update()
+                
+                # Check if it's a CPU
+                hw_type = str(hardware.HardwareType)
+                if "Cpu" not in hw_type:
+                    continue
+                
+                # Update subhardware
+                for subhardware in hardware.SubHardware:
+                    subhardware.Update()
+                    for sensor in subhardware.Sensors:
+                        self._process_sensor(sensor, cpu_package_temp, cpu_core_temps, 
+                                           cpu_max_temp, cpu_avg_temp)
+                
+                # Get sensors from main hardware
+                for sensor in hardware.Sensors:
+                    sensor_type = str(sensor.SensorType)
+                    if sensor_type != "Temperature":
+                        continue
+                    
+                    name = sensor.Name.lower() if sensor.Name else ""
+                    value = sensor.Value
+                    
+                    if value is None or value <= 0 or value > 150:
+                        continue
+                    
+                    # Prioritize different sensor types
+                    if "package" in name:
+                        cpu_package_temp = float(value)
+                    elif "max" in name:
+                        cpu_max_temp = float(value)
+                    elif "average" in name:
+                        cpu_avg_temp = float(value)
+                    elif "core" in name:
+                        cpu_core_temps.append(float(value))
+            
+            # Return in order of preference
+            if cpu_package_temp is not None:
+                return cpu_package_temp
+            if cpu_avg_temp is not None:
+                return cpu_avg_temp
+            if cpu_max_temp is not None:
+                return cpu_max_temp
+            if cpu_core_temps:
+                return sum(cpu_core_temps) / len(cpu_core_temps)
+            
+        except Exception as e:
+            pass
+        
+        return None
+    
+    def close(self):
+        """Close the computer instance and release resources."""
+        if self._computer:
+            try:
+                self._computer.Close()
+            except Exception:
+                pass
+            self._computer = None
+            self._initialized = False
+    
+    def get_error(self) -> Optional[str]:
+        """Get the last error message."""
+        return self._error_msg
+
+
+# Visitor class for updating hardware
+# This needs to be defined after imports but we need to handle the case
+# where pythonnet isn't available
+try:
+    import clr
+    from LibreHardwareMonitor.Hardware import IVisitor
+    
+    class _UpdateVisitor(IVisitor):
+        """Visitor that updates hardware and sensors."""
+        
+        def VisitComputer(self, computer):
+            computer.Traverse(self)
+        
+        def VisitHardware(self, hardware):
+            hardware.Update()
+            for subhardware in hardware.SubHardware:
+                subhardware.Accept(self)
+        
+        def VisitSensor(self, sensor):
+            pass
+        
+        def VisitParameter(self, parameter):
+            pass
+
+except Exception:
+    # pythonnet not available or DLL not loaded yet
+    # Create a dummy class that will be replaced when DLL is loaded
+    class _UpdateVisitor:
+        pass
+
+
 class TemperatureMonitor(QThread):
     """
     Background thread that monitors CPU temperature.
@@ -43,6 +242,7 @@ class TemperatureMonitor(QThread):
         self._interval = update_interval
         self._running = False
         self._mutex = QMutex()
+        self._lhm_dll = None
         self._wmi_lhm = None
         self._wmi_ohm = None
         self._wmi_thermal = None
@@ -55,6 +255,25 @@ class TemperatureMonitor(QThread):
         self._mutex.lock()
         self._interval = interval
         self._mutex.unlock()
+    
+    def _init_lhm_dll(self) -> bool:
+        """
+        Initialize the bundled LibreHardwareMonitorLib DLL.
+        This is the preferred method as it doesn't require any external software.
+        """
+        try:
+            self._lhm_dll = LibreHardwareMonitorDLL()
+            if self._lhm_dll.initialize():
+                # Try to read temperature to verify it works
+                temp = self._lhm_dll.get_cpu_temperature()
+                if temp is not None:
+                    self._method = "LHM-DLL"
+                    return True
+        except Exception as e:
+            pass
+        
+        self._lhm_dll = None
+        return False
     
     def _init_libre_hardware_monitor_wmi(self) -> bool:
         """
@@ -124,6 +343,18 @@ class TemperatureMonitor(QThread):
             self._wmi_thermal = None
         
         return False
+    
+    def _get_temp_from_dll(self) -> Optional[float]:
+        """Get CPU temperature from bundled LibreHardwareMonitorLib DLL."""
+        if not self._lhm_dll:
+            return None
+        
+        try:
+            return self._lhm_dll.get_cpu_temperature()
+        except Exception:
+            pass
+        
+        return None
     
     def _get_temp_from_lhm(self) -> Optional[float]:
         """Get CPU temperature from LibreHardwareMonitor WMI."""
@@ -242,7 +473,13 @@ class TemperatureMonitor(QThread):
         Get the current CPU temperature.
         Returns: (temperature, source) where source indicates where the reading came from.
         """
-        # Try LibreHardwareMonitor first
+        # Try bundled LHM DLL first (most reliable)
+        temp = self._get_temp_from_dll()
+        if temp is not None:
+            self._last_real_temp = temp
+            return temp, "DLL"
+        
+        # Try LibreHardwareMonitor WMI
         temp = self._get_temp_from_lhm()
         if temp is not None:
             self._last_real_temp = temp
@@ -271,18 +508,19 @@ class TemperatureMonitor(QThread):
         """Main monitoring loop."""
         self._running = True
         
-        # Try to initialize temperature sources
-        lhm_ok = self._init_libre_hardware_monitor_wmi()
-        ohm_ok = self._init_open_hardware_monitor_wmi() if not lhm_ok else False
-        thermal_ok = self._init_wmi_thermal() if not (lhm_ok or ohm_ok) else False
+        # Try to initialize temperature sources in order of preference
+        dll_ok = self._init_lhm_dll()
+        lhm_ok = self._init_libre_hardware_monitor_wmi() if not dll_ok else False
+        ohm_ok = self._init_open_hardware_monitor_wmi() if not (dll_ok or lhm_ok) else False
+        thermal_ok = self._init_wmi_thermal() if not (dll_ok or lhm_ok or ohm_ok) else False
         
-        if not (lhm_ok or ohm_ok or thermal_ok):
+        if not (dll_ok or lhm_ok or ohm_ok or thermal_ok):
             self._method = "Simulation"
             if not self._error_shown:
                 self._error_shown = True
                 self.error_occurred.emit(
                     "Using simulated temperature.\n"
-                    "For real readings, run LibreHardwareMonitor."
+                    "Hardware monitoring requires administrator privileges."
                 )
         
         while self._running:
@@ -291,15 +529,6 @@ class TemperatureMonitor(QThread):
             self._mutex.unlock()
             
             temp, source = self.get_temperature()
-            
-            # Re-check for LHM/OHM if we're using simulation (they might have started)
-            if source == "SIM" and not self._error_shown:
-                if self._init_libre_hardware_monitor_wmi():
-                    source = "LHM"
-                    temp, _ = self.get_temperature()
-                elif self._init_open_hardware_monitor_wmi():
-                    source = "OHM"
-                    temp, _ = self.get_temperature()
             
             if temp is not None:
                 self.temperature_updated.emit(temp)
@@ -311,6 +540,11 @@ class TemperatureMonitor(QThread):
     def stop(self):
         """Stop the monitoring thread."""
         self._running = False
+        
+        # Clean up LHM DLL
+        if self._lhm_dll:
+            self._lhm_dll.close()
+        
         self.wait(2000)
 
 

@@ -2,7 +2,7 @@
 ; Download Inno Setup from: https://jrsoftware.org/isinfo.php
 
 #define MyAppName "CPU Temperature Widget"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Virtual Platforms LLC"
 #define MyAppURL "https://github.com/jaifar530/cpu-temp-widget"
 #define MyAppExeName "CPUTempWidget.exe"
@@ -20,6 +20,8 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
+; License file
+LicenseFile=..\THIRD-PARTY-LICENSES.txt
 ; Output settings
 OutputDir=..\installer_output
 OutputBaseFilename=CPUTempWidget_Setup_{#MyAppVersion}
@@ -29,7 +31,7 @@ WizardStyle=modern
 ; Compression
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Privileges - require admin for better hardware access
+; Privileges - require admin for hardware access
 PrivilegesRequired=admin
 ; Uninstaller
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -46,6 +48,7 @@ Name: "startupicon"; Description: "Start automatically with Windows"; GroupDescr
 
 [Files]
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\THIRD-PARTY-LICENSES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
