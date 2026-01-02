@@ -2,7 +2,7 @@
 
 A polished, lightweight Windows desktop widget that displays your CPU temperature in real-time with a beautiful translucent overlay.
 
-![Widget Preview](https://via.placeholder.com/200x80/1e1e2e/cdd6f4?text=CPU:+52°C)
+![Widget Preview](resources/preview.png)
 
 ## Download
 
